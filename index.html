@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fusion Smart - Energy Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
+    <style>
+        :root {
+            --bg-sidebar: #101223;
+            --bg-main: linear-gradient(135deg, #1b3860 0%, #172c49 100%);
+            --bg-card: #202b4d;
+            --text-active: #ffffff;
+            --text-muted: #8b9dc3;
+            --accent-cyan: #2ce6c5;
+            --accent-yellow: #fddb3a;
+            --accent-red: #fd4f64;
+            --accent-purple: #ab46d2;
+            --accent-green: #a4ce4e;
+            --border-color: rgba(255,255,255,0.05);
+        }
+
+        body.light-mode {
+            --bg-sidebar: #f0f2f5;
+            --bg-main: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+            --bg-card: #ffffff;
+            --text-active: #1e293b;
+            --text-muted: #64748b;
+            --border-color: rgba(0,0,0,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            height: 100vh;
+            background: var(--bg-main);
+            color: var(--text-active);
+            overflow: hidden;
+        }
+
+        /* Responsive Layout */
+        @media (max-width: 900px) {
+            body {
+                flex-direction: column;
+                overflow-y: auto;
+                height: auto;
+            }
+            .sidebar {
+                width: 100%;
+                padding: 15px 0;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            }
+            .brand {
+                margin-bottom: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+            }
+            .brand .beta {
+                margin-top: 0;
+            }
+            .nav-menu {
+                display: flex;
+                overflow-x: auto;
+                padding-bottom: 10px;
+            }
+            .nav-menu li {
+                padding: 10px 20px;
+                white-space: nowrap;
+                border-left: none;
+                border-bottom: 3px solid transparent;
+            }
+            .nav-menu li.active {
+                border-left-color: transparent;
+                border-bottom-color: var(--accent-cyan);
+            }
+            .main-content {
+                padding: 20px;
+            }
+            .header-left {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: var(--bg-sidebar);
+            display: flex;
+            flex-direction: column;
+            padding: 30px 0;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        .brand {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .brand h2 {
+            font-size: 22px;
+            font-weight: 300;
+            letter-spacing: 1px;
+            color: #d1d5db;
+        }
+
+        .brand .beta {
+            color: var(--accent-red);
+            font-size: 11px;
+            letter-spacing: 2px;
+            display: block;
+            margin-top: 8px;
+        }
+
+        .nav-menu {
+            list-style: none;
+            flex: 1;
+        }
+
+        .nav-menu li {
+            padding: 16px 30px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: var(--text-muted);
+            font-size: 14px;
+            border-left: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .nav-menu li:hover {
+            color: var(--text-active);
+            background: rgba(255,255,255,0.02);
+        }
+
+        .nav-menu li.active {
+            color: var(--text-active);
+            border-left-color: var(--accent-cyan);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .nav-menu li svg {
+            width: 20px;
+            height: 20px;
+            opacity: 0.8;
+            fill: currentColor;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        .toggle-group {
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            display: flex;
+            padding: 4px;
+        }
+
+        .toggle-group button {
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            padding: 6px 16px;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: 0.3s;
+        }
+
+        .toggle-group button.active {
+            background: #1e293b;
+            color: var(--text-active);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .date-label {
+            font-size: 16px;
+            color: rgba(255,255,255,0.8);
+        }
+
+        /* Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            align-items: stretch;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 6px;
+            padding: 20px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.25);
+        }
+
+        .card-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .chart-container-full {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            min-height: 200px;
+        }
+
+        .chart-inner-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .chart-inner-text span {
+            display: block;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .chart-inner-text strong {
+            display: block;
+            font-size: 26px;
+            font-weight: 600;
+            color: var(--text-active);
+            margin-top: 4px;
+        }
+
+        /* Custom widgets styling */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed rgba(255,255,255,0.1);
+        }
+
+        .increase-text {
+            color: var(--accent-red);
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+
+        .change-card-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .bar-chart-mini {
+            width: 50%;
+            height: 150px;
+        }
+
+        /* Progress bars */
+        .progress-group {
+            margin-bottom: 25px;
+        }
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-active);
+            margin-bottom: 8px;
+        }
+        .progress-label span:last-child {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s ease-in-out;
+        }
+        .progress-subtext {
+            font-size: 11px;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Legend dots */
+        .legend {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .dot {
+            width: 10px;
+            height: 10px;
+            background: red;
+        }
+
+        /* Settings modal (hidden by default) */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: var(--bg-card);
+            padding: 30px;
+            border-radius: 8px;
+            width: 400px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        .modal h3 { margin-bottom: 20px; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 12px; margin-bottom: 5px; color: var(--text-muted); }
+        .input-group input { width: 100%; padding: 10px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 4px; }
+        .btn { padding: 10px 20px; background: var(--accent-cyan); color: #000; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; width: 100%; margin-top: 10px; }
+        .close-btn { position: absolute; top: 20px; right: 20px; cursor: pointer; color: var(--text-muted); }
+
+        /* Alert Banner */
+        .alert-banner {
+            background: rgba(253, 79, 100, 0.15);
+            border: 1px solid var(--accent-red);
+            color: #ff8a98;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Profile Modal Specifics */
+        .profile-container {
+            display: flex;
+            gap: 30px;
+        }
+        .profile-left {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 120px;
+        }
+        .avatar-circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .profile-right {
+            flex: 1;
+        }
+        .profile-right h4 {
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 10px;
+            color: #d1d5db;
+        }
+
+        /* Calendar Input overrides */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            opacity: 0.7;
+            cursor: pointer;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+        }
+
+        /* Premium Slider Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 54px;
+            height: 28px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255,255,255,0.1);
+            transition: .4s;
+            border-radius: 34px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        input:checked + .slider {
+            background-color: var(--accent-cyan);
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        input:disabled + .slider {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+
+    </style>
+</head>
+<body>
+
+    <!-- Login Overlay -->
+    <div id="loginOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-main); z-index:1000; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(10px);">
+        <div class="card" style="width:350px; padding:30px; border:1px solid var(--accent-cyan); box-shadow: 0 0 20px rgba(44, 230, 197, 0.2);">
+            <div class="brand" style="margin-bottom:30px;">
+                <h2 style="color:var(--accent-cyan);">FUSION LOGIN</h2>
+            </div>
+            <div class="input-group">
+                <label>User Role</label>
+                <select id="userRole" style="width:100%; padding:10px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); color:white; border-radius:4px; outline:none;">
+                    <option value="admin">Administrator (Full Access)</option>
+                    <option value="user">User (Read Only)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Access Code</label>
+                <input type="password" id="accessCode" placeholder="Enter PIN" value="1234">
+                <small style="color:var(--text-muted); font-size:10px;">Default: 1234</small>
+            </div>
+            <button class="btn" onclick="handleLogin()">ACCESS DASHBOARD</button>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="brand">
+            <h2>SMART ELECTRICITY</h2>
+            <span class="beta">BETA</span>
+        </div>
+        <ul class="nav-menu">
+            <li class="active">
+                <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+                Dashboard
+            </li>
+            <li onclick="alert('Cost page coming soon.')">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 14h-3v3h-2v-3H8v-2h3v-3h2v3h3v2z"/></svg>
+                Cost
+            </li>
+            <li onclick="toggleSettings()">
+                <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 C13.96,21.83,14.16,22,14.4,22h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+                ESP32 Setup
+            </li>
+            <li onclick="toggleProfile()">
+                <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                Profile
+            </li>
+        </ul>
+    </div>
+
+    <!-- Main -->
+    <div class="main-content">
+        <div class="header">
+            <div class="header-left">
+                <div style="display:flex; align-items:baseline; gap:15px;">
+                    <h1>Energy Dashboard</h1>
+                    <span id="connectionStatus" style="font-size:12px; padding:4px 8px; border-radius:12px; background:rgba(255,255,255,0.1); color:var(--text-muted);">Connecting...</span>
+                </div>
+                <div class="toggle-group" id="timeToggles">
+                    <button class="active">TODAY</button>
+                    <button>MONTH</button>
+                    <button>YEAR</button>
+                </div>
+                <!-- Theme Toggle -->
+                <button onclick="toggleTheme()" class="btn" style="width:auto; padding:8px 15px; margin-top:0; font-size:12px; display:flex; align-items:center; gap:8px;">
+                    <span id="themeLabel">Light Mode</span>
+                </button>
+            </div>
+            <div class="date-label" style="display:flex; align-items:center;">
+                <input type="date" id="calendarInput" style="background:transparent; border:none; color:rgba(255,255,255,0.8); font-family:'Inter', sans-serif; font-size:16px; font-weight:500; padding:4px; outline:none; cursor:pointer;" />
+            </div>
+        </div>
+
+        <div id="alertBanner" class="alert-banner" style="display: none; background: rgba(253, 79, 100, 0.2); border: 2px solid var(--accent-red);">
+            <svg style="width:24px;height:24px;fill:var(--accent-red)" viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>
+            <span id="alertBannerText">HIGH POWER USAGE DETECTED! Approaching overload threshold.</span>
+        </div>
+
+        <div class="dashboard-grid" id="dashboardGrid" style="transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
+            
+            <!-- 0. Live Sensor Readings Header -->
+            <div class="card" style="grid-column: 1 / -1; display:flex; justify-content:space-around; align-items:center; flex-wrap:wrap; background: linear-gradient(90deg, rgba(26,27,65,0.7) 0%, rgba(35,39,77,0.8) 100%);">
+                <div style="text-align:center;">
+                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:5px;">REAL-TIME VOLTAGE</div>
+                    <div style="font-size:32px; font-weight:bold; color:var(--accent-yellow);"><span id="liveVoltage">0.0</span> <span style="font-size:18px;">V</span></div>
+                </div>
+                <div style="width:1px; height:50px; background:rgba(255,255,255,0.1);"></div>
+                <div style="text-align:center;">
+                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:5px;">LIVE CURRENT</div>
+                    <div style="font-size:32px; font-weight:bold; color:var(--accent-cyan);"><span id="liveCurrent">0.00</span> <span style="font-size:18px;">A</span></div>
+                </div>
+                <div style="width:1px; height:50px; background:rgba(255,255,255,0.1);"></div>
+                <div style="text-align:center;">
+                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:5px;">ACTIVE POWER</div>
+                    <div style="font-size:32px; font-weight:bold; color:var(--accent-red);"><span id="livePower">0.0</span> <span style="font-size:18px;">W</span></div>
+                </div>
+            </div>
+
+            <!-- AI PREDICTION & RELAY CONTROL -->
+            <div class="card" style="grid-column: 1 / -1; display:grid; grid-template-columns: 1fr 1fr; gap:20px; align-items:center;">
+                <div>
+                    <div class="card-title">AI OVERLOAD PREDICTION</div>
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        <div id="aiStatusIcon" style="width:15px; height:15px; border-radius:50%; background:var(--accent-green);"></div>
+                        <div style="font-size:18px; font-weight:600;"><span id="aiPredictionText">SAFE - NO OVERLOAD RISK</span></div>
+                    </div>
+                    <div style="font-size:12px; color:var(--text-muted); margin-top:5px;">Predicted Power (5 min): <span id="predictedPowerValue">0.0</span> W</div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="card-title">AUTO-CUTOFF RELAY</div>
+                    <div style="display:flex; align-items:center; justify-content:flex-end; gap:15px;">
+                        <span id="relayStatusText" style="font-weight:600; color:var(--accent-cyan); font-size:14px;">LOAD ON</span>
+                        <label class="switch">
+                            <input type="checkbox" id="relayToggle" checked onchange="handleRelayToggle()">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 1. Cost Predicted -->
+            <div class="card">
+                <div class="card-title">COST PREDICTED</div>
+                <div class="chart-container-full">
+                    <canvas id="costPredictedChart"></canvas>
+                    <div class="chart-inner-text">
+                        <span>Total</span>
+                        <strong id="totalCostVal">$0</strong>
+                    </div>
+                </div>
+                <div class="legend">
+                    <div class="legend-item"><div class="dot" style="background: var(--accent-cyan);"></div> Electricity</div>
+                    <div class="legend-item"><div class="dot" style="background: var(--accent-yellow);"></div> Gas</div>
+                </div>
+            </div>
+
+            <!-- 2. Change in Cost -->
+            <div class="card">
+                <div class="card-title">CHANGE IN COST</div>
+                <div class="change-card-content">
+                    <div class="bar-chart-mini">
+                        <canvas id="changeInCostChart"></canvas>
+                    </div>
+                    <div>
+                        <div class="increase-text">
+                            ▲ <span id="percentIncrease">0.00%</span>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">INCREASE IN COST</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Usage Estimate -->
+            <div class="card">
+                <div class="card-title">USAGE ESTIMATE</div>
+                <div class="info-row">
+                    <span>Till Now: <strong id="kwhTillNow" style="color:white; margin-left:5px;">0 kWh</strong></span>
+                    <span>Predicted: <strong style="color:white; margin-left:5px;">439 kWh</strong></span>
+                </div>
+                <div class="chart-container-full">
+                    <canvas id="usageEstimateChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 4. Active Appliances -->
+            <div class="card">
+                <div class="card-title">ACTIVE APPLIANCES</div>
+                <div class="chart-container-full">
+                    <canvas id="appliancesChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 5. Energy Intensity -->
+            <div class="card">
+                <div class="card-title">ENERGY INTENSITY</div>
+                <div class="chart-container-full" style="padding-top: 30px;">
+                    <canvas id="intensityChart"></canvas>
+                    <div class="chart-inner-text" style="top: 75%;">
+                        <strong id="intensityVal" style="font-size:32px;">0</strong>
+                        <span>kWh/Sqft</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. Carbon Footprint -->
+            <div class="card">
+                <div class="card-title">CARBON FOOTPRINT</div>
+                
+                <div class="progress-group">
+                    <div class="progress-label">
+                        <span>Emission</span>
+                    </div>
+                    <div class="progress-subtext" style="margin-bottom: 5px;">
+                        <span>Till Date</span>
+                        <span>Predicted</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="emissionFill" style="width: 25%; background: var(--text-muted);"></div>
+                    </div>
+                    <div class="progress-subtext" style="margin-top: 5px;">
+                        <span><span id="emissionVal">36.4</span> Kg of CO2</span>
+                        <span>181.8 Kg of CO2</span>
+                    </div>
+                </div>
+
+                <div class="progress-group" style="margin-top:20px;">
+                    <div class="progress-label">
+                        <span>Green Energy Generated</span>
+                        <span>Goal</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="greenFill" style="width: 60%; background: var(--accent-green);"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div class="modal" id="profileModal">
+        <div class="modal-content" style="width: 600px; position: relative;">
+            <div class="close-btn" onclick="toggleProfile()">✕</div>
+            <h3 style="margin-bottom: 30px;">User Profile</h3>
+            <div class="profile-container">
+                <div class="profile-left">
+                    <div class="avatar-circle">JD</div>
+                    <button class="btn" style="padding: 6px; font-size: 11px;">Change Photo</button>
+                    <a href="#" onclick="handleLogout()" style="color:var(--accent-red); font-size:12px; margin-top:20px; text-decoration:none;">Log Out</a>
+                </div>
+                <div class="profile-right">
+                    <h4>Personal Information</h4>
+                    <div class="input-group">
+                        <label>Full Name</label>
+                        <input type="text" value="John Doe">
+                    </div>
+                    <div class="input-group">
+                        <label>Email Address</label>
+                        <input type="email" value="john.doe@meditrust.example.com">
+                    </div>
+                    
+                    <h4 style="margin-top: 30px;">Preferences</h4>
+                    <div class="input-group" style="display:flex; justify-content:space-between; align-items:center;">
+                        <label style="margin:0;">Receive Email Alerts for High Usage</label>
+                        <input type="checkbox" style="width:auto; cursor:pointer;" checked>
+                    </div>
+                    <div class="input-group" style="display:flex; justify-content:space-between; align-items:center;">
+                        <label style="margin:0;">Dark Theme Mode</label>
+                        <input type="checkbox" style="width:auto; cursor:pointer;" checked>
+                    </div>
+                    
+                    <button class="btn" onclick="toggleProfile()" style="margin-top: 30px; width: auto; float: right;">Save Preferences</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal for ESP32 config -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content" style="position:relative;">
+            <div class="close-btn" onclick="toggleSettings()">✕</div>
+            <h3>ESP32 Connection Setup</h3>
+            <div class="input-group">
+                <label>ESP32 IP Address / Host</label>
+                <input type="text" id="esp32Ip" placeholder="e.g., 192.168.1.100 or esp32.local" value="localhost:3000">
+            </div>
+            <hr style="border-color: rgba(255,255,255,0.05); margin: 20px 0;">
+            <h4 style="margin-bottom: 15px; font-size:14px; color:#d1d5db;">Configure ESP32 WiFi</h4>
+            <div class="input-group">
+                <label>Network SSID</label>
+                <input type="text" id="wifiSsid" placeholder="Your WiFi Network Name">
+            </div>
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="wifiPass" placeholder="••••••••">
+            </div>
+            <hr style="border-color: rgba(255,255,255,0.05); margin: 20px 0;">
+            <h4 style="margin-bottom: 15px; font-size:14px; color:#d1d5db;">Dashboard Settings</h4>
+            <div class="input-group">
+                <label>Overload Threshold (Watts)</label>
+                <input type="number" id="thresholdInput" placeholder="2000" value="2000">
+            </div>
+            <div class="input-group" style="display:flex; justify-content:space-between; align-items:center;">
+                <label style="margin:0;">Enable Warning Sound</label>
+                <input type="checkbox" id="soundToggle" style="width:auto; cursor:pointer;" checked>
+            </div>
+            <button class="btn" onclick="saveSettings()">Save Configuration</button>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Calendar
+        const dateOptions = { month: 'long', year: 'numeric' };
+        const calInput = document.getElementById('calendarInput');
+        if (calInput) {
+            calInput.value = new Date().toISOString().split('T')[0];
+        }
+
+        // Profile Modal Logic
+        function toggleProfile() {
+            const m = document.getElementById('profileModal');
+            m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        // Chart defaults
+        Chart.defaults.color = "rgba(255,255,255,0.5)";
+        Chart.defaults.font.family = "'Inter', sans-serif";
+
+        const pBlue = '#2ce6c5'; // Cyan
+        const pYellow = '#fddb3a';
+        const pPurple = '#ab46d2';
+        const pPurpleLight = '#8b3fba';
+
+        // 1. Cost Predicted (Doughnut)
+        const ctxCost = document.getElementById('costPredictedChart').getContext('2d');
+        let costChart = new Chart(ctxCost, {
+            type: 'doughnut',
+            data: {
+                labels: ['Electricity', 'Gas'],
+                datasets: [{
+                    data: [0, 0],
+                    backgroundColor: [pBlue, pYellow],
+                    borderWidth: 0,
+                    cutout: '80%'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                layout: { padding: { right: 80 } }
+            }
+        });
+
+        // 2. Change in Cost (Bar)
+        const ctxChange = document.getElementById('changeInCostChart').getContext('2d');
+        let changeChart = new Chart(ctxChange, {
+            type: 'bar',
+            data: {
+                labels: ['May', 'Jun'],
+                datasets: [{
+                    data: [0, 0],
+                    backgroundColor: ['rgba(44, 230, 197, 0.4)', 'rgba(44, 230, 197, 1)'],
+                    borderRadius: 4,
+                    barPercentage: 0.6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { display: false, beginAtZero: true }
+                }
+            }
+        });
+
+        // 3. Usage Estimate (Line + Area)
+        const ctxUsage = document.getElementById('usageEstimateChart').getContext('2d');
+        let grad = ctxUsage.createLinearGradient(0, 0, 0, 200);
+        grad.addColorStop(0, "rgba(44, 100, 230, 0.5)");
+        grad.addColorStop(1, "rgba(44, 100, 230, 0.05)");
+
+        let usageChart = new Chart(ctxUsage, {
+            type: 'line',
+            data: {
+                labels: ['Jun 1', 'Jun 8', 'Jun 15', 'Jun 22', 'Jun 29'],
+                datasets: [{
+                    label: 'kWh',
+                    data: [0, 0, 0, 0, 0],
+                    borderColor: '#f43f5e',
+                    borderWidth: 2,
+                    backgroundColor: grad,
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: '#f43f5e',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, border: { dash: [4, 4] } }
+                }
+            }
+        });
+
+        // 4. Active Appliances (Horizontal Bar)
+        const ctxApps = document.getElementById('appliancesChart').getContext('2d');
+        let appsChart = new Chart(ctxApps, {
+            type: 'bar',
+            data: {
+                labels: ['Heating & AC', 'EV Charge', 'Plug Loads', 'Refrigeration', 'Lighting'],
+                datasets: [{
+                    data: [0, 0, 0, 0, 0],
+                    backgroundColor: [pPurple, pPurpleLight, '#7d33b0', '#632594', '#461670'],
+                    borderRadius: 2
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false, beginAtZero: true },
+                    y: { grid: { display: false }, ticks: { color: '#fff' } }
+                }
+            }
+        });
+
+        // 5. Energy Intensity (Half Doughnut)
+        const ctxIntens = document.getElementById('intensityChart').getContext('2d');
+        let intensChart = new Chart(ctxIntens, {
+            type: 'doughnut',
+            data: {
+                labels: ['Used', 'Remaining'],
+                datasets: [{
+                    data: [0, 100],
+                    backgroundColor: [pBlue, 'rgba(255,255,255,0.1)'],
+                    borderWidth: 0,
+                    circumference: 180,
+                    rotation: 270,
+                    cutout: '85%'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // --- Interaction Logic ---
+        function toggleSettings() {
+            const modal = document.getElementById('settingsModal');
+            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        let espIp = localStorage.getItem("esp32Ip") || "localhost:3000";
+        document.getElementById('esp32Ip').value = espIp;
+
+        function saveSettings() {
+            espIp = document.getElementById('esp32Ip').value;
+            let ssid = document.getElementById('wifiSsid') ? document.getElementById('wifiSsid').value : '';
+            let pass = document.getElementById('wifiPass') ? document.getElementById('wifiPass').value : '';
+            localStorage.setItem("esp32Ip", espIp);
+            
+            if (ssid) {
+                // Send credentials directly to the ESP32
+                fetch(`http://${espIp}/wifi`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ssid: ssid, password: pass })
+                })
+                .then(res => {
+                    alert("WiFi Config sent! The ESP32 is now connecting to: " + ssid);
+                    toggleSettings();
+                })
+                .catch(err => {
+                    alert("Error sending WiFi config to ESP32.\nMake sure you are connected to the ESP32's Access Point or Local IP.");
+                });
+            } else {
+                alert("ESP32 IP Config saved: " + espIp);
+                toggleSettings();
+            }
+        }
+
+        // --- Simulated Data Fetching / ESP32 Connection ---
+        let currentKwh = 0;
+        let electricityCost = 0;
+        let gasCost = 0;
+
+        function setDashboardActive(isActive) {
+            const grid = document.getElementById('dashboardGrid');
+            const toggles = document.getElementById('timeToggles');
+            const calInput = document.getElementById('calendarInput');
+            
+            const opacity = isActive ? '1' : '0.25';
+            const pointerEvents = isActive ? 'auto' : 'none';
+            const filter = isActive ? 'none' : 'grayscale(0.6)';
+            
+            if (grid) {
+                grid.style.opacity = opacity;
+                grid.style.pointerEvents = pointerEvents;
+                grid.style.filter = filter;
+            }
+            if (toggles) {
+                toggles.style.opacity = opacity;
+                toggles.style.pointerEvents = pointerEvents;
+            }
+            if (calInput) {
+                calInput.style.opacity = opacity;
+                calInput.style.pointerEvents = pointerEvents;
+            }
+        }
+
+        // Start with the dashboard active visually
+        setDashboardActive(true);
+
+        function updateRealTimeData() {
+            fetch(`http://${espIp}/data`)
+                .then(res => res.json())
+                .then(data => {
+                    const statusEl = document.getElementById("connectionStatus");
+                    if(statusEl) {
+                        statusEl.innerText = "● Connected";
+                        statusEl.style.color = "var(--accent-green)";
+                        statusEl.style.background = "rgba(164, 206, 78, 0.1)";
+                    }
+                    processData(data);
+                })
+                .catch(err => {
+                    const statusEl = document.getElementById("connectionStatus");
+                    if(statusEl) {
+                        statusEl.innerText = "○ Disconnected";
+                        statusEl.style.color = "var(--accent-red)";
+                        statusEl.style.background = "rgba(253, 79, 100, 0.15)";
+                    }
+                    // Do not process dummy data anymore, as requested by the user
+                });
+        }
+
+        function processData(data) {
+            // Use real ESP32 data instead of dummy increments
+            // Example data payload expected from ESP32: { power: 1200.5, voltage: 230, current: 5.2 }
+            if (data.power) {
+                // Assuming power is in Watts, we accumulate kWh over 3 seconds: W / 1000 * (3/3600)
+                currentKwh += (data.power / 1000) * (3/3600);
+            }
+            if (data.voltage && data.current) {
+                // Update cost depending on usage
+                electricityCost += (data.voltage * data.current / 1000) * (3/3600) * 0.15; // assuming $0.15/kWh
+            }
+
+            // Update the live sensor reading headers directly
+            if (data.voltage) document.getElementById('liveVoltage').innerText = data.voltage;
+            if (data.current) document.getElementById('liveCurrent').innerText = data.current.toFixed(2);
+            if (data.power) document.getElementById('livePower').innerText = data.power.toFixed(1);
+
+            // 1. Update Cost Expected
+            let tot = electricityCost + gasCost;
+            document.getElementById('totalCostVal').innerText = '$' + tot.toFixed(0);
+            costChart.data.datasets[0].data = [electricityCost, gasCost];
+            costChart.update();
+
+            // 2. Change In cost update
+            let pct = tot > 0 ? ((tot - 150) / 150) * 100 : 0; // Using $150 as base comparison
+            document.getElementById('percentIncrease').innerText = pct.toFixed(2) + '%';
+            changeChart.data.datasets[0].data[1] = tot;
+            changeChart.update();
+
+            // 3. Usage estimate point addition
+            document.getElementById('kwhTillNow').innerText = currentKwh.toFixed(2) + ' kWh';
+            usageChart.data.datasets[0].data = [currentKwh*0.2, currentKwh*0.5, currentKwh*0.7, currentKwh*0.9, currentKwh];
+            usageChart.update();
+
+            // 4. Appliances Breakdown (derived from live power)
+            if (data.power) {
+                let kw = data.power / 1000;
+                appsChart.data.datasets[0].data = [kw * 0.4, kw * 0.25, kw * 0.2, kw * 0.1, kw * 0.05];
+                appsChart.update();
+            }
+
+            // 5. Intensity 
+            if (currentKwh > 0 || data.power) {
+                let intensVal = Math.min(100, currentKwh * 1.5); 
+                document.getElementById('intensityVal').innerText = intensVal.toFixed(0);
+                intensChart.data.datasets[0].data[0] = intensVal;
+                intensChart.data.datasets[0].data[1] = 100 - intensVal;
+                intensChart.update();
+            }
+
+            // 6. Progress bar pseudo-animation
+            let emStr = (currentKwh * 0.4).toFixed(2); // ~0.4 kg CO2 per kWh
+            document.getElementById('emissionVal').innerText = emStr;
+            document.getElementById('emissionFill').style.width = Math.min(100, (emStr / 181.8 * 100)) + '%';
+        }
+
+        // --- NEW FEATURES INTEGRATION ---
+
+        // Firebase Configuration (PLACEHOLDERS - REPLACE WITH YOUR OWN)
+        const firebaseConfig = {
+            apiKey: "AIzaSyALsYBue-venZI0RKUD2WLwEXsUEExrOAk",
+            authDomain: "smartelecticity.firebaseapp.com",
+            databaseURL: "https://smartelecticity-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "smartelecticity",
+            storageBucket: "smartelecticity.firebasestorage.app",
+            messagingSenderId: "654234538836",
+            appId: "1:654234538836:web:d9c00b5c18604b6df36ec1",
+            measurementId: "G-SESDKME8W5"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const dataRef = db.ref('energy_monitoring');
+
+        // Notification Request
+        if ("Notification" in window) {
+            Notification.requestPermission();
+        }
+
+        function triggerNotification(title, body) {
+            if (Notification.permission === "granted") {
+                new Notification(title, {
+                    body: body,
+                    icon: "https://img.icons8.com/color/96/000000/whatsapp.png" // Simulated WhatsApp alert icon
+                });
+            }
+        }
+
+        // Relay Control Logic
+        function handleRelayToggle() {
+            const isChecked = document.getElementById('relayToggle').checked;
+            const statusText = document.getElementById('relayStatusText');
+            
+            if (isChecked) {
+                statusText.innerText = "LOAD ON";
+                statusText.style.color = "var(--accent-cyan)";
+                dataRef.update({ relay: true });
+            } else {
+                statusText.innerText = "LOAD OFF";
+                statusText.style.color = "var(--accent-red)";
+                dataRef.update({ relay: false });
+                triggerNotification("Relay Cutoff", "The load has been manually turned OFF.");
+            }
+        }
+
+        // AI Prediction Logic (Simple Linear Regression)
+        let powerHistory = [];
+        const MAX_HISTORY = 50; // Increased for better prediction
+        let userRole = 'user'; // Default
+
+        function handleLogin() {
+            const role = document.getElementById('userRole').value;
+            const pin = document.getElementById('accessCode').value;
+            
+            if (pin === "1234") {
+                userRole = role;
+                document.getElementById('loginOverlay').style.display = 'none';
+                localStorage.setItem('userRole', role);
+                applyRolePermissions();
+            } else {
+                alert("Invalid PIN.");
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('userRole');
+            location.reload();
+        }
+
+        function applyRolePermissions() {
+            const controls = [document.getElementById('thresholdInput'), document.getElementById('relayToggle')];
+            controls.forEach(el => {
+                if (el) el.disabled = (userRole === 'user');
+            });
+            
+            if (userRole === 'user') {
+                document.getElementById('relayStatusText').innerText += " (Locked)";
+            }
+        }
+
+        // Init role on load
+        const savedRole = localStorage.getItem('userRole');
+        if (savedRole) {
+            userRole = savedRole;
+            document.getElementById('loginOverlay').style.display = 'none';
+            setTimeout(applyRolePermissions, 500);
+        }
+
+        function predictOverload(currentPower) {
+            powerHistory.push(currentPower);
+            if (powerHistory.length > MAX_HISTORY) powerHistory.shift();
+
+            if (powerHistory.length >= 5) {
+                // Linear Regression y = mx + b
+                const n = powerHistory.length;
+                let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                for (let i = 0; i < n; i++) {
+                    sumX += i;
+                    sumY += powerHistory[i];
+                    sumXY += i * powerHistory[i];
+                    sumX2 += i * i;
+                }
+                const m = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+                const b = (sumY - m * sumX) / n;
+
+                // Predict 5 steps ahead (approx 5 min)
+                const predictedPower = m * (n + 5) + b;
+                document.getElementById('predictedPowerValue').innerText = Math.max(0, predictedPower).toFixed(1);
+
+                const aiStatusIcon = document.getElementById('aiStatusIcon');
+                const aiPredictionText = document.getElementById('aiPredictionText');
+
+                if (predictedPower > OVERLOAD_THRESHOLD) {
+                    aiStatusIcon.style.background = "var(--accent-red)";
+                    aiPredictionText.innerText = "OVERLOAD RISK DETECTED!";
+                    aiPredictionText.style.color = "var(--accent-red)";
+                    triggerNotification("⚠️ Overload Alert", `Prediction: ${predictedPower.toFixed(0)}W. Relay will auto-cutoff if usage continues.`);
+                } else {
+                    aiStatusIcon.style.background = "var(--accent-green)";
+                    aiPredictionText.innerText = "SAFE - NO OVERLOAD RISK";
+                    aiPredictionText.style.color = "var(--text-active)";
+                }
+            }
+        }
+
+        // Listen for Real-time Updates from Firebase
+        dataRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            // Update UI Elements
+            document.getElementById('liveVoltage').innerText = data.voltage ? data.voltage.toFixed(1) : "0.0";
+            document.getElementById('liveCurrent').innerText = data.current ? data.current.toFixed(2) : "0.00";
+            document.getElementById('livePower').innerText = data.power ? data.power.toFixed(1) : "0.0";
+            
+            const statusEl = document.getElementById("connectionStatus");
+            if(statusEl) {
+                statusEl.innerText = "● Cloud Live";
+                statusEl.style.color = "var(--accent-cyan)";
+                statusEl.style.background = "rgba(44, 230, 197, 0.1)";
+            }
+
+            // AI Prediction and Auto-cutoff
+            predictOverload(data.power || 0);
+
+            if (data.power > OVERLOAD_THRESHOLD && document.getElementById('relayToggle').checked) {
+                document.getElementById('relayToggle').checked = false;
+                handleRelayToggle();
+                triggerNotification("🔌 Auto Cutoff", "Load turned OFF automatically to prevent overload.");
+            }
+
+            // High usage alert banner and sound
+            checkOverloadAlerts(data.power || 0);
+
+            // Store History for AI and Chart (in memory for now, could be pushed to /history)
+            powerHistory.push(data.power || 0);
+            if (powerHistory.length > MAX_HISTORY) powerHistory.shift();
+
+            // Update Charts
+            updateChartsWithData(data);
+        });
+
+        // Load History from Firebase on startup
+        dataRef.child('history').limitToLast(20).once('value', (snapshot) => {
+            snapshot.forEach((child) => {
+                const h = child.val();
+                if (h.power) powerHistory.push(h.power);
+                usageChart.data.datasets[0].data.push(h.power);
+            });
+            usageChart.update();
+        });
+
+        function updateChartsWithData(data) {
+            const p = data.power || 0;
+            const v = data.voltage || 0;
+            const c = data.current || 0;
+
+            // Cost Update
+            const cost = (p / 1000) * 0.15; // Simple cost calc
+            costChart.data.datasets[0].data = [cost, 5]; // 5 is mock gas
+            costChart.update();
+            document.getElementById('totalCostVal').innerText = "$" + (cost + 5).toFixed(2);
+
+            // Usage Chart Update
+            usageChart.data.datasets[0].data.push(p);
+            if (usageChart.data.datasets[0].data.length > 20) usageChart.data.datasets[0].data.shift();
+            usageChart.update();
+
+            document.getElementById('kwhTillNow').innerText = ((p / 1000) * (1/60)).toFixed(4) + " kWh";
+
+            // Appliance Update
+            appsChart.data.datasets[0].data = [p*0.4, p*0.2, p*0.15, p*0.15, p*0.1];
+            appsChart.update();
+
+            // Intensity Update
+            const intens = Math.min(100, (p / 2500) * 100);
+            document.getElementById('intensityVal').innerText = intens.toFixed(0);
+            intensChart.data.datasets[0].data = [intens, 100 - intens];
+            intensChart.update();
+        }
+
+        // Adjustable Threshold & Settings Persistence
+        let OVERLOAD_THRESHOLD = parseInt(localStorage.getItem('overloadThreshold')) || 2000;
+        let soundEnabled = localStorage.getItem('soundEnabled') !== 'false';
+        
+        document.getElementById('thresholdInput').value = OVERLOAD_THRESHOLD;
+        document.getElementById('soundToggle').checked = soundEnabled;
+
+        function saveDashboardSettings() {
+            OVERLOAD_THRESHOLD = parseInt(document.getElementById('thresholdInput').value) || 2000;
+            soundEnabled = document.getElementById('soundToggle').checked;
+            
+            localStorage.setItem('overloadThreshold', OVERLOAD_THRESHOLD);
+            localStorage.setItem('soundEnabled', soundEnabled);
+            alert("Settings saved locally!");
+        }
+
+        // Sound Alert
+        function playWarningSound() {
+            if (!soundEnabled) return;
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.2);
+        }
+
+        // Theme Toggle
+        function toggleTheme() {
+            document.body.classList.toggle('light-mode');
+            const isLight = document.body.classList.contains('light-mode');
+            document.getElementById('themeLabel').innerText = isLight ? "Dark Mode" : "Light Mode";
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            
+            // Update charts for theme
+            const textColor = isLight ? '#1e293b' : 'rgba(255,255,255,0.5)';
+            Chart.defaults.color = textColor;
+            [costChart, changeChart, usageChart, appsChart, intensChart].forEach(c => {
+                c.options.scales?.x?.ticks && (c.options.scales.x.ticks.color = textColor);
+                c.options.scales?.y?.ticks && (c.options.scales.y.ticks.color = textColor);
+                c.update();
+            });
+        }
+
+        if (localStorage.getItem('theme') === 'light') toggleTheme();
+
+        // Overload logic enhancement
+        function checkOverloadAlerts(power) {
+            const banner = document.getElementById('alertBanner');
+            if (power > OVERLOAD_THRESHOLD) {
+                banner.style.display = 'flex';
+                playWarningSound();
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+
+
+        // Fixed saveSettings to include new logic
+        function saveSettings() {
+            espId = document.getElementById('esp32Ip').value;
+            localStorage.setItem("esp32Ip", espId);
+            saveDashboardSettings();
+            toggleSettings();
+        }
+
+        // --- Time Period Toggle Logic ---
+        const timeButtons = document.querySelectorAll('#timeToggles button');
+        timeButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                timeButtons.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+            });
+        });
+        
+    </script>
+</body>
+</html>
