@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Settings</title>
+
+<style>
+body {
+    background:#0f172a;
+    color:white;
+    font-family:Arial;
+    padding:20px;
+}
+.card {
+    background:#1e293b;
+    padding:20px;
+    margin-bottom:20px;
+    border-radius:10px;
+}
+input, select {
+    width:100%;
+    margin:8px 0;
+    padding:8px;
+}
+button {
+    padding:10px;
+    background:#22c55e;
+    border:none;
+    color:white;
+}
+</style>
+</head>
+
+<body>
+
+<h1>⚙ Settings</h1>
+
+<div class="card">
+<h3>Limits</h3>
+<input id="voltLimit" placeholder="Voltage Limit">
+<input id="currLimit" placeholder="Current Limit">
+<input id="powerLimit" placeholder="Power Limit">
+<input id="billLimit" placeholder="Bill Limit">
+
+<select id="mode">
+<option value="auto">Auto</option>
+<option value="manual">Manual</option>
+</select>
+
+<button onclick="saveLimits()">Save</button>
+</div>
+
+<div class="card">
+<h3>Theme</h3>
+<button onclick="setTheme('dark')">Dark</button>
+<button onclick="setTheme('light')">Light</button>
+</div>
+
+<script>
+function saveLimits(){
+const limits={
+voltage:voltLimit.value,
+current:currLimit.value,
+power:powerLimit.value,
+bill:billLimit.value,
+mode:mode.value
+};
+
+localStorage.setItem("limits",JSON.stringify(limits));
+alert("Saved");
+}
+
+function setTheme(t){
+if(t==="light"){
+document.body.style.background="#fff";
+document.body.style.color="#000";
+}else{
+document.body.style.background="#0f172a";
+document.body.style.color="#fff";
+}
+}
+</script>
+
+</body>
+</html>
